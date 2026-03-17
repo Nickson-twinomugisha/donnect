@@ -76,7 +76,12 @@ export default function DonationsPage() {
       form.reset();
       toast({ title: "Donation recorded", description: `Donation from ${newDonation.donorName} recorded.` });
     },
-    onError: (err) => toast({ title: "Failed to record donation", description: err.message, variant: "destructive" })
+    onError: (err) => {
+      const msg = err instanceof Error && err.name === "AbortError"
+        ? "Request timed out. Please check your connection and try again."
+        : err instanceof Error ? err.message : "Unknown error";
+      toast({ title: "Failed to record donation", description: msg, variant: "destructive" });
+    }
   });
 
   const updateMutation = useMutation({

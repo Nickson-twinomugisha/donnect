@@ -176,22 +176,24 @@ export default function TestResultsPage() {
           <h1 className="text-2xl font-bold font-display">Test Results</h1>
           <p className="text-muted-foreground">{results.length} test records</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={(open) => {
-          setDialogOpen(open);
-          if (!open) {
-            setEditId(null);
-            form.reset({ 
-              donationId: "", 
-              date: new Date().toISOString().split('T')[0], 
-              hiv: "pending", 
-              hepatitisB: "pending", 
-              hepatitisC: "pending", 
-              syphilis: "pending", 
-              bloodTypingConfirmation: "pending", 
-              hemoglobin: "" 
-            });
-          }
-        }}>
+        {/* Only admins can add / record new test results */}
+        {user?.role === "admin" && (
+          <Dialog open={dialogOpen} onOpenChange={(open) => {
+            setDialogOpen(open);
+            if (!open) {
+              setEditId(null);
+              form.reset({ 
+                donationId: "", 
+                date: new Date().toISOString().split('T')[0], 
+                hiv: "pending", 
+                hepatitisB: "pending", 
+                hepatitisC: "pending", 
+                syphilis: "pending", 
+                bloodTypingConfirmation: "pending", 
+                hemoglobin: "" 
+              });
+            }
+          }}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Record Results</Button></DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader><DialogTitle className="font-display">{editId ? "Edit Test Results" : "Record Test Results"}</DialogTitle></DialogHeader>
@@ -234,7 +236,8 @@ export default function TestResultsPage() {
               </form>
             </Form>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        )}
       </div>
 
       <Card>
@@ -286,21 +289,21 @@ export default function TestResultsPage() {
                     <TableCell><StatusBadge status={t.bloodTypingConfirmation} /></TableCell>
                     <TableCell className="text-muted-foreground">{t.hemoglobin ?? "—"}</TableCell>
                     <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(t)}><Edit2 className="h-4 w-4 mr-2" />Edit Results</DropdownMenuItem>
-                          {user?.role === "admin" && (
+                      {user?.role === "admin" && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleEdit(t)}><Edit2 className="h-4 w-4 mr-2" />Edit Results</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setDeleteId(t.id)} className="text-destructive focus:bg-destructive/10">
                               <Trash2 className="h-4 w-4 mr-2" />Delete Record
                             </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))
