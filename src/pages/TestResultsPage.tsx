@@ -1,14 +1,26 @@
 import { useState, useMemo } from "react";
-import { getTestResults, getDonations, getDonors, addTestResult, type TestResult } from "@/lib/mock-data";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { getTestResults, getDonations, addTestResult, updateTestResult, deleteTestResult, type TestResult } from "@/lib/mock-data";
+import { testResultSchema, type TestResultFormValues } from "@/lib/validations";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Plus } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Search, Plus, MoreVertical, Edit2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+import { useAuth } from "@/contexts/AuthContext";
+
+type TestStatus = "pass" | "fail" | "pending";
 
 function StatusBadge({ status }: { status: string }) {
   if (status === "pass") return <Badge className="bg-success/20 text-success border-0 text-xs">Pass</Badge>;
@@ -16,51 +28,133 @@ function StatusBadge({ status }: { status: string }) {
   return <Badge className="bg-warning/20 text-warning border-0 text-xs">Pending</Badge>;
 }
 
-type TestStatus = "pass" | "fail" | "pending";
-
 export default function TestResultsPage() {
-  const [results, setResults] = useState(getTestResults);
-  const donations = getDonations();
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: results = [] as TestResult[], isLoading: loadingResults } = useQuery({ queryKey: ["test_results"], queryFn: getTestResults });
+  const { data: donationsData, isLoading: loadingDonations } = useQuery({ queryKey: ["donations"], queryFn: () => getDonations() });
+  
+  const donations = donationsData?.donations || [];
+
+  const form = useForm<TestResultFormValues>({
+    resolver: zodResolver(testResultSchema),
+    defaultValues: {
+      donationId: "",
+      date: new Date().toISOString().split('T')[0],
+      hiv: "pending",
+      hepatitisB: "pending",
+      hepatitisC: "pending",
+      syphilis: "pending",
+      bloodTypingConfirmation: "pending",
+      hemoglobin: "",
+    }
+  });
+
+  const addMutation = useMutation({
+    mutationFn: addTestResult,
+    onSuccess: (newResult) => {
+      queryClient.setQueryData(["test_results"], (old: TestResult[]) => [newResult, ...(old || [])]);
+      setDialogOpen(false);
+      form.reset();
+      toast({ title: "Test results recorded" });
+    },
+    onError: (err) => {
+      toast({ title: "Failed to record tests", description: err instanceof Error ? err.message : "Error", variant: "destructive" });
+    }
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data: Omit<TestResult, "id">) => updateTestResult(editId!, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["test_results"] });
+      setDialogOpen(false);
+      setEditId(null);
+      form.reset();
+      toast({ title: "Test results updated" });
+    },
+    onError: (err) => {
+      toast({ title: "Failed to update test results", description: err instanceof Error ? err.message : "Error", variant: "destructive" });
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteTestResult,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["test_results"] });
+      setDeleteId(null);
+      toast({ title: "Test record deleted" });
+    },
+    onError: (err) => {
+      toast({ title: "Delete failed", description: err instanceof Error ? err.message : "Error", variant: "destructive" });
+    }
+  });
 
   const filtered = useMemo(() => {
     return results.filter(t =>
       t.donorName.toLowerCase().includes(search.toLowerCase())
-    ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    );
   }, [results, search]);
 
-  const handleAdd = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    const donationId = fd.get("donationId") as string;
-    const donation = donations.find(d => d.id === donationId);
+  const onSubmit = (values: TestResultFormValues) => {
+    const donation = donations.find(d => d.id === values.donationId);
     if (!donation) return;
-    const newResult = addTestResult({
-      donationId,
+    
+    const obj = {
+      donationId: values.donationId,
       donorId: donation.donorId,
       donorName: donation.donorName,
-      date: fd.get("date") as string,
-      hiv: fd.get("hiv") as TestStatus,
-      hepatitisB: fd.get("hepatitisB") as TestStatus,
-      hepatitisC: fd.get("hepatitisC") as TestStatus,
-      syphilis: fd.get("syphilis") as TestStatus,
-      bloodTypingConfirmation: fd.get("bloodTyping") as TestStatus,
-      hemoglobin: fd.get("hemoglobin") ? parseFloat(fd.get("hemoglobin") as string) : null,
-    });
-    setResults(prev => [...prev, newResult]);
-    setDialogOpen(false);
-    toast({ title: "Test results recorded" });
+      date: values.date,
+      hiv: values.hiv,
+      hepatitisB: values.hepatitisB,
+      hepatitisC: values.hepatitisC,
+      syphilis: values.syphilis,
+      bloodTypingConfirmation: values.bloodTypingConfirmation,
+      hemoglobin: values.hemoglobin ? Number(values.hemoglobin) : null,
+    };
+
+    if (editId) {
+      updateMutation.mutate(obj);
+    } else {
+      addMutation.mutate(obj);
+    }
   };
 
-  const statusSelect = (name: string, label: string) => (
-    <div className="space-y-2">
-      <Label>{label}</Label>
-      <select name={name} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-        <option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option>
-      </select>
-    </div>
+  const handleEdit = (result: TestResult) => {
+    setEditId(result.id);
+    form.reset({
+      donationId: result.donationId,
+      date: result.date.split("T")[0],
+      hiv: result.hiv,
+      hepatitisB: result.hepatitisB,
+      hepatitisC: result.hepatitisC,
+      syphilis: result.syphilis,
+      bloodTypingConfirmation: result.bloodTypingConfirmation,
+      hemoglobin: result.hemoglobin ?? "",
+    });
+    setDialogOpen(true);
+  };
+
+  const StatusSelectField = ({ name, label }: { name: keyof TestResultFormValues, label: string }) => (
+    <FormField control={form.control} name={name} render={({ field }) => (
+      <FormItem>
+        <FormLabel>{label}</FormLabel>
+        <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
+          <FormControl><SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger></FormControl>
+          <SelectContent>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="pass">Pass</SelectItem>
+            <SelectItem value="fail">Fail</SelectItem>
+          </SelectContent>
+        </Select>
+        <FormMessage />
+      </FormItem>
+    )} />
   );
 
   return (
@@ -70,29 +164,63 @@ export default function TestResultsPage() {
           <h1 className="text-2xl font-bold font-display">Test Results</h1>
           <p className="text-muted-foreground">{results.length} test records</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog open={dialogOpen} onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) {
+            setEditId(null);
+            form.reset({ 
+              donationId: "", 
+              date: new Date().toISOString().split('T')[0], 
+              hiv: "pending", 
+              hepatitisB: "pending", 
+              hepatitisC: "pending", 
+              syphilis: "pending", 
+              bloodTypingConfirmation: "pending", 
+              hemoglobin: "" 
+            });
+          }
+        }}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Record Results</Button></DialogTrigger>
           <DialogContent className="max-w-lg">
-            <DialogHeader><DialogTitle className="font-display">Record Test Results</DialogTitle></DialogHeader>
-            <form onSubmit={handleAdd} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Donation</Label>
-                <select name="donationId" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" required>
-                  <option value="">Select donation</option>
-                  {donations.map(d => <option key={d.id} value={d.id}>{d.donorName} — {new Date(d.date).toLocaleDateString()}</option>)}
-                </select>
-              </div>
-              <div className="space-y-2"><Label>Date</Label><Input name="date" type="date" required /></div>
-              <div className="grid grid-cols-2 gap-3">
-                {statusSelect("hiv", "HIV")}
-                {statusSelect("hepatitisB", "Hepatitis B")}
-                {statusSelect("hepatitisC", "Hepatitis C")}
-                {statusSelect("syphilis", "Syphilis")}
-                {statusSelect("bloodTyping", "Blood Typing")}
-                <div className="space-y-2"><Label>Hemoglobin (g/dL)</Label><Input name="hemoglobin" type="number" step="0.1" /></div>
-              </div>
-              <Button type="submit" className="w-full">Record Results</Button>
-            </form>
+            <DialogHeader><DialogTitle className="font-display">{editId ? "Edit Test Results" : "Record Test Results"}</DialogTitle></DialogHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField control={form.control} name="donationId" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Donation</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={loadingDonations}>
+                      <FormControl><SelectTrigger><SelectValue placeholder="Select donation" /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        {donations.map(d => <SelectItem key={d.id} value={d.id}>{d.donorName} — {new Date(d.date).toLocaleDateString()}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="date" render={({ field }) => (
+                  <FormItem><FormLabel>Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <div className="grid grid-cols-2 gap-3">
+                  <StatusSelectField name="hiv" label="HIV" />
+                  <StatusSelectField name="hepatitisB" label="Hepatitis B" />
+                  <StatusSelectField name="hepatitisC" label="Hepatitis C" />
+                  <StatusSelectField name="syphilis" label="Syphilis" />
+                  <StatusSelectField name="bloodTypingConfirmation" label="Blood Typing" />
+                  <FormField control={form.control} name="hemoglobin" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Hemoglobin (g/dL)</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.1" {...field} value={field.value ?? ""} onChange={e => field.onChange(e.target.value ? Number(e.target.value) : "")} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+                <Button type="submit" className="w-full" disabled={addMutation.isPending || updateMutation.isPending || loadingDonations}>
+                  {editId ? (updateMutation.isPending ? "Saving..." : "Save Changes") : (addMutation.isPending ? "Recording..." : "Record Results")}
+                </Button>
+              </form>
+            </Form>
           </DialogContent>
         </Dialog>
       </div>
@@ -116,25 +244,76 @@ export default function TestResultsPage() {
                 <TableHead>Syphilis</TableHead>
                 <TableHead>Blood Type</TableHead>
                 <TableHead>Hb</TableHead>
+                <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map(t => (
-                <TableRow key={t.id}>
-                  <TableCell className="font-medium">{t.donorName}</TableCell>
-                  <TableCell className="text-muted-foreground">{new Date(t.date).toLocaleDateString()}</TableCell>
-                  <TableCell><StatusBadge status={t.hiv} /></TableCell>
-                  <TableCell><StatusBadge status={t.hepatitisB} /></TableCell>
-                  <TableCell><StatusBadge status={t.hepatitisC} /></TableCell>
-                  <TableCell><StatusBadge status={t.syphilis} /></TableCell>
-                  <TableCell><StatusBadge status={t.bloodTypingConfirmation} /></TableCell>
-                  <TableCell className="text-muted-foreground">{t.hemoglobin ?? "—"}</TableCell>
+              {loadingResults ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    {Array.from({ length: 8 }).map((_, j) => (
+                      <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-6 text-muted-foreground h-32">
+                    No test results found.
+                  </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                filtered.map(t => (
+                  <TableRow key={t.id}>
+                    <TableCell className="font-medium">{t.donorName}</TableCell>
+                    <TableCell className="text-muted-foreground">{new Date(t.date).toLocaleDateString()}</TableCell>
+                    <TableCell><StatusBadge status={t.hiv} /></TableCell>
+                    <TableCell><StatusBadge status={t.hepatitisB} /></TableCell>
+                    <TableCell><StatusBadge status={t.hepatitisC} /></TableCell>
+                    <TableCell><StatusBadge status={t.syphilis} /></TableCell>
+                    <TableCell><StatusBadge status={t.bloodTypingConfirmation} /></TableCell>
+                    <TableCell className="text-muted-foreground">{t.hemoglobin ?? "—"}</TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEdit(t)}><Edit2 className="h-4 w-4 mr-2" />Edit Results</DropdownMenuItem>
+                          {user?.role === "admin" && (
+                            <DropdownMenuItem onClick={() => setDeleteId(t.id)} className="text-destructive focus:bg-destructive/10">
+                              <Trash2 className="h-4 w-4 mr-2" />Delete Record
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Test Record?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this test result record. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => deleteId && deleteMutation.mutate(deleteId)}>
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

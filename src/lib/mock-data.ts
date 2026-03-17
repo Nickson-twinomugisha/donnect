@@ -1,11 +1,8 @@
-export type UserRole = "admin" | "staff";
+import { supabase } from "@/lib/supabase";
 
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: UserRole;
-}
+// ─── Types (camelCase for TypeScript) ─────────────────────────────────────────
+
+export type UserRole = "admin" | "staff";
 
 export interface Donor {
   id: string;
@@ -57,168 +54,380 @@ export interface MedicalNote {
   content: string;
 }
 
-const MOCK_DONORS: Donor[] = [
-  {
-    id: "d1", fullName: "James Carter", dateOfBirth: "1990-03-15", gender: "male",
-    bloodType: "O+", phone: "+1-555-0101", email: "james.carter@email.com",
-    address: "123 Main St, Springfield", emergencyContactName: "Sarah Carter",
-    emergencyContactPhone: "+1-555-0102", emergencyContactRelationship: "Spouse",
-    donationCenter: "Central Blood Bank", createdAt: "2024-01-10",
-  },
-  {
-    id: "d2", fullName: "Maria Santos", dateOfBirth: "1985-07-22", gender: "female",
-    bloodType: "A-", phone: "+1-555-0201", email: "maria.santos@email.com",
-    address: "456 Oak Ave, Riverside", emergencyContactName: "Pedro Santos",
-    emergencyContactPhone: "+1-555-0202", emergencyContactRelationship: "Brother",
-    donationCenter: "Riverside Medical Center", createdAt: "2024-02-05",
-  },
-  {
-    id: "d3", fullName: "Alex Johnson", dateOfBirth: "1992-11-08", gender: "male",
-    bloodType: "B+", phone: "+1-555-0301", email: "alex.j@email.com",
-    address: "789 Pine Rd, Lakewood", emergencyContactName: "Lisa Johnson",
-    emergencyContactPhone: "+1-555-0302", emergencyContactRelationship: "Mother",
-    donationCenter: "Central Blood Bank", createdAt: "2024-03-12",
-  },
-  {
-    id: "d4", fullName: "Priya Patel", dateOfBirth: "1988-01-30", gender: "female",
-    bloodType: "AB+", phone: "+1-555-0401", email: "priya.p@email.com",
-    address: "321 Elm Dr, Greenfield", emergencyContactName: "Raj Patel",
-    emergencyContactPhone: "+1-555-0402", emergencyContactRelationship: "Husband",
-    donationCenter: "Greenfield Community Hospital", createdAt: "2024-04-18",
-  },
-  {
-    id: "d5", fullName: "David Kim", dateOfBirth: "1995-06-14", gender: "male",
-    bloodType: "O-", phone: "+1-555-0501", email: "david.kim@email.com",
-    address: "654 Maple Ln, Westville", emergencyContactName: "Grace Kim",
-    emergencyContactPhone: "+1-555-0502", emergencyContactRelationship: "Sister",
-    donationCenter: "Central Blood Bank", createdAt: "2024-05-22",
-  },
-];
+// ─── Mapping helpers (snake_case DB ↔ camelCase TS) ──────────────────────────
 
-const MOCK_DONATIONS: Donation[] = [
-  { id: "dn1", donorId: "d1", donorName: "James Carter", date: "2025-01-15", type: "whole_blood", volume: 450, center: "Central Blood Bank", collectedBy: "Nurse Williams", bloodType: "O+" },
-  { id: "dn2", donorId: "d2", donorName: "Maria Santos", date: "2025-01-20", type: "plasma", volume: 600, center: "Riverside Medical Center", collectedBy: "Nurse Davis", bloodType: "A-" },
-  { id: "dn3", donorId: "d3", donorName: "Alex Johnson", date: "2025-01-25", type: "platelets", volume: 250, center: "Central Blood Bank", collectedBy: "Nurse Williams", bloodType: "B+" },
-  { id: "dn4", donorId: "d1", donorName: "James Carter", date: "2025-02-10", type: "whole_blood", volume: 450, center: "Central Blood Bank", collectedBy: "Nurse Williams", bloodType: "O+" },
-  { id: "dn5", donorId: "d4", donorName: "Priya Patel", date: "2025-02-12", type: "whole_blood", volume: 450, center: "Greenfield Community Hospital", collectedBy: "Nurse Brown", bloodType: "AB+" },
-  { id: "dn6", donorId: "d5", donorName: "David Kim", date: "2025-02-14", type: "plasma", volume: 500, center: "Central Blood Bank", collectedBy: "Nurse Williams", bloodType: "O-" },
-  { id: "dn7", donorId: "d2", donorName: "Maria Santos", date: "2025-02-15", type: "whole_blood", volume: 450, center: "Riverside Medical Center", collectedBy: "Nurse Davis", bloodType: "A-" },
-];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapDonor(row: any): Donor {
+  return {
+    id: row.id,
+    fullName: row.full_name,
+    dateOfBirth: row.date_of_birth,
+    gender: row.gender,
+    bloodType: row.blood_type,
+    phone: row.phone,
+    email: row.email,
+    address: row.address,
+    emergencyContactName: row.emergency_contact_name,
+    emergencyContactPhone: row.emergency_contact_phone,
+    emergencyContactRelationship: row.emergency_contact_relationship,
+    donationCenter: row.donation_center,
+    createdAt: row.created_at,
+  };
+}
 
-const MOCK_TEST_RESULTS: TestResult[] = [
-  { id: "t1", donationId: "dn1", donorId: "d1", donorName: "James Carter", date: "2025-01-16", hiv: "pass", hepatitisB: "pass", hepatitisC: "pass", syphilis: "pass", bloodTypingConfirmation: "pass", hemoglobin: 14.5 },
-  { id: "t2", donationId: "dn2", donorId: "d2", donorName: "Maria Santos", date: "2025-01-21", hiv: "pass", hepatitisB: "pass", hepatitisC: "pass", syphilis: "pass", bloodTypingConfirmation: "pass", hemoglobin: 13.2 },
-  { id: "t3", donationId: "dn3", donorId: "d3", donorName: "Alex Johnson", date: "2025-01-26", hiv: "pass", hepatitisB: "pending", hepatitisC: "pending", syphilis: "pass", bloodTypingConfirmation: "pass", hemoglobin: 15.1 },
-  { id: "t4", donationId: "dn4", donorId: "d1", donorName: "James Carter", date: "2025-02-11", hiv: "pass", hepatitisB: "pass", hepatitisC: "pass", syphilis: "pass", bloodTypingConfirmation: "pass", hemoglobin: 14.8 },
-  { id: "t5", donationId: "dn5", donorId: "d4", donorName: "Priya Patel", date: "2025-02-13", hiv: "pending", hepatitisB: "pending", hepatitisC: "pending", syphilis: "pending", bloodTypingConfirmation: "pending", hemoglobin: null },
-];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapDonation(row: any): Donation {
+  return {
+    id: row.id,
+    donorId: row.donor_id,
+    donorName: row.donor_name,
+    date: row.date,
+    type: row.type,
+    volume: row.volume,
+    center: row.center,
+    collectedBy: row.collected_by,
+    bloodType: row.blood_type,
+  };
+}
 
-const MOCK_MEDICAL_NOTES: MedicalNote[] = [
-  { id: "mn1", donorId: "d1", author: "Dr. Smith", date: "2025-01-15", content: "Donor in good health. No adverse reactions during donation." },
-  { id: "mn2", donorId: "d2", author: "Nurse Davis", date: "2025-01-20", content: "Slight dizziness after donation. Rested for 30 minutes before leaving." },
-  { id: "mn3", donorId: "d3", author: "Dr. Smith", date: "2025-01-25", content: "First-time platelet donor. Tolerated procedure well." },
-];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapTestResult(row: any): TestResult {
+  return {
+    id: row.id,
+    donationId: row.donation_id,
+    donorId: row.donor_id,
+    donorName: row.donor_name,
+    date: row.date,
+    hiv: row.hiv,
+    hepatitisB: row.hepatitis_b,
+    hepatitisC: row.hepatitis_c,
+    syphilis: row.syphilis,
+    bloodTypingConfirmation: row.blood_typing_confirmation,
+    hemoglobin: row.hemoglobin,
+  };
+}
 
-function getStorage<T>(key: string, fallback: T): T {
-  try {
-    const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : fallback;
-  } catch {
-    return fallback;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapMedicalNote(row: any): MedicalNote {
+  return {
+    id: row.id,
+    donorId: row.donor_id,
+    author: row.author,
+    date: row.date,
+    content: row.content,
+  };
+}
+
+// ─── Donors ───────────────────────────────────────────────────────────────────
+
+export async function getDonors(
+  page?: number, 
+  pageSize?: number,
+  search?: string,
+  bloodType?: string
+): Promise<{ donors: Donor[]; count: number | null }> {
+  let query = supabase
+    .from("donors")
+    .select("*", { count: "exact" });
+
+  if (search) {
+    query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%`);
   }
-}
-
-function setStorage<T>(key: string, data: T) {
-  localStorage.setItem(key, JSON.stringify(data));
-}
-
-// Initialize storage with mock data on first load
-function initMockData() {
-  if (!localStorage.getItem("donnect_initialized")) {
-    setStorage("donnect_donors", MOCK_DONORS);
-    setStorage("donnect_donations", MOCK_DONATIONS);
-    setStorage("donnect_test_results", MOCK_TEST_RESULTS);
-    setStorage("donnect_medical_notes", MOCK_MEDICAL_NOTES);
-    localStorage.setItem("donnect_initialized", "true");
+  if (bloodType && bloodType !== "all") {
+    query = query.eq("blood_type", bloodType);
   }
+
+  query = query.order("full_name", { ascending: true });
+
+  if (page !== undefined && pageSize !== undefined) {
+    const from = page * pageSize;
+    const to = from + pageSize - 1;
+    query = query.range(from, to);
+  }
+
+  const { data, error, count } = await query;
+  if (error) throw error;
+  return { donors: (data ?? []).map(mapDonor), count };
 }
 
-initMockData();
-
-export function getDonors(): Donor[] {
-  return getStorage("donnect_donors", MOCK_DONORS);
+export async function getDonor(id: string): Promise<Donor | null> {
+  const { data, error } = await supabase
+    .from("donors")
+    .select("*")
+    .eq("id", id)
+    .single();
+  if (error) return null;
+  return mapDonor(data);
 }
 
-export function getDonor(id: string): Donor | undefined {
-  return getDonors().find(d => d.id === id);
+export async function addDonor(donor: Omit<Donor, "id" | "createdAt">): Promise<Donor> {
+  const { data, error } = await supabase
+    .from("donors")
+    .insert({
+      full_name: donor.fullName,
+      date_of_birth: donor.dateOfBirth,
+      gender: donor.gender,
+      blood_type: donor.bloodType,
+      phone: donor.phone,
+      email: donor.email,
+      address: donor.address,
+      emergency_contact_name: donor.emergencyContactName,
+      emergency_contact_phone: donor.emergencyContactPhone,
+      emergency_contact_relationship: donor.emergencyContactRelationship,
+      donation_center: donor.donationCenter,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return mapDonor(data);
 }
 
-export function addDonor(donor: Omit<Donor, "id" | "createdAt">): Donor {
-  const donors = getDonors();
-  const newDonor: Donor = { ...donor, id: `d${Date.now()}`, createdAt: new Date().toISOString().split("T")[0] };
-  donors.push(newDonor);
-  setStorage("donnect_donors", donors);
-  return newDonor;
+export async function updateDonor(id: string, donor: Partial<Omit<Donor, "id" | "createdAt">>): Promise<Donor> {
+  const { data, error } = await supabase
+    .from("donors")
+    .update({
+      full_name: donor.fullName,
+      date_of_birth: donor.dateOfBirth,
+      gender: donor.gender,
+      blood_type: donor.bloodType,
+      phone: donor.phone,
+      email: donor.email,
+      address: donor.address,
+      emergency_contact_name: donor.emergencyContactName,
+      emergency_contact_phone: donor.emergencyContactPhone,
+      emergency_contact_relationship: donor.emergencyContactRelationship,
+      donation_center: donor.donationCenter,
+    })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return mapDonor(data);
 }
 
-export function getDonations(): Donation[] {
-  return getStorage("donnect_donations", MOCK_DONATIONS);
+export async function deleteDonor(id: string): Promise<void> {
+  const { error } = await supabase.from("donors").delete().eq("id", id);
+  if (error) throw error;
 }
 
-export function getDonationsByDonor(donorId: string): Donation[] {
-  return getDonations().filter(d => d.donorId === donorId);
+// ─── Donations ────────────────────────────────────────────────────────────────
+
+export async function getDonations(page?: number, pageSize?: number): Promise<{ donations: Donation[]; count: number | null }> {
+  let query = supabase
+    .from("donations")
+    .select("*", { count: "exact" })
+    .order("date", { ascending: false });
+
+  if (page !== undefined && pageSize !== undefined) {
+    const from = page * pageSize;
+    const to = from + pageSize - 1;
+    query = query.range(from, to);
+  }
+
+  const { data, error, count } = await query;
+  if (error) throw error;
+  return { donations: (data ?? []).map(mapDonation), count };
 }
 
-export function addDonation(donation: Omit<Donation, "id">): Donation {
-  const donations = getDonations();
-  const newDonation: Donation = { ...donation, id: `dn${Date.now()}` };
-  donations.push(newDonation);
-  setStorage("donnect_donations", donations);
-  return newDonation;
+export async function getDonationsByDonor(donorId: string): Promise<Donation[]> {
+  const { data, error } = await supabase
+    .from("donations")
+    .select("*")
+    .eq("donor_id", donorId)
+    .order("date", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapDonation);
 }
 
-export function getTestResults(): TestResult[] {
-  return getStorage("donnect_test_results", MOCK_TEST_RESULTS);
+export async function addDonation(donation: Omit<Donation, "id">): Promise<Donation> {
+  const { data, error } = await supabase
+    .from("donations")
+    .insert({
+      donor_id: donation.donorId,
+      donor_name: donation.donorName,
+      date: donation.date,
+      type: donation.type,
+      volume: donation.volume,
+      center: donation.center,
+      collected_by: donation.collectedBy,
+      blood_type: donation.bloodType,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return mapDonation(data);
 }
 
-export function getTestResultsByDonor(donorId: string): TestResult[] {
-  return getTestResults().filter(t => t.donorId === donorId);
+export async function updateDonation(id: string, donation: Partial<Omit<Donation, "id">>): Promise<Donation> {
+  const { data, error } = await supabase
+    .from("donations")
+    .update({
+      donor_id: donation.donorId,
+      donor_name: donation.donorName,
+      date: donation.date,
+      type: donation.type,
+      volume: donation.volume,
+      center: donation.center,
+      collected_by: donation.collectedBy,
+      blood_type: donation.bloodType,
+    })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return mapDonation(data);
 }
 
-export function addTestResult(result: Omit<TestResult, "id">): TestResult {
-  const results = getTestResults();
-  const newResult: TestResult = { ...result, id: `t${Date.now()}` };
-  results.push(newResult);
-  setStorage("donnect_test_results", results);
-  return newResult;
+export async function deleteDonation(id: string): Promise<void> {
+  const { error } = await supabase.from("donations").delete().eq("id", id);
+  if (error) throw error;
 }
 
-export function getMedicalNotes(): MedicalNote[] {
-  return getStorage("donnect_medical_notes", MOCK_MEDICAL_NOTES);
+// ─── Test Results ─────────────────────────────────────────────────────────────
+
+export async function getTestResults(): Promise<TestResult[]> {
+  const { data, error } = await supabase
+    .from("test_results")
+    .select("*")
+    .order("date", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapTestResult);
 }
 
-export function getMedicalNotesByDonor(donorId: string): MedicalNote[] {
-  return getMedicalNotes().filter(n => n.donorId === donorId);
+export async function getTestResultsByDonor(donorId: string): Promise<TestResult[]> {
+  const { data, error } = await supabase
+    .from("test_results")
+    .select("*")
+    .eq("donor_id", donorId)
+    .order("date", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapTestResult);
 }
 
-export function addMedicalNote(note: Omit<MedicalNote, "id">): MedicalNote {
-  const notes = getMedicalNotes();
-  const newNote: MedicalNote = { ...note, id: `mn${Date.now()}` };
-  notes.push(newNote);
-  setStorage("donnect_medical_notes", notes);
-  return newNote;
+export async function addTestResult(result: Omit<TestResult, "id">): Promise<TestResult> {
+  const { data, error } = await supabase
+    .from("test_results")
+    .insert({
+      donation_id: result.donationId,
+      donor_id: result.donorId,
+      donor_name: result.donorName,
+      date: result.date,
+      hiv: result.hiv,
+      hepatitis_b: result.hepatitisB,
+      hepatitis_c: result.hepatitisC,
+      syphilis: result.syphilis,
+      blood_typing_confirmation: result.bloodTypingConfirmation,
+      hemoglobin: result.hemoglobin,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return mapTestResult(data);
 }
 
-export function isEligibleToDonate(donorId: string): boolean {
-  const donations = getDonationsByDonor(donorId);
-  if (donations.length === 0) return true;
-  const lastDonation = donations.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-  const daysSince = Math.floor((Date.now() - new Date(lastDonation.date).getTime()) / (1000 * 60 * 60 * 24));
+export async function updateTestResult(id: string, result: Partial<Omit<TestResult, "id">>): Promise<TestResult> {
+  const { data, error } = await supabase
+    .from("test_results")
+    .update({
+      donation_id: result.donationId,
+      donor_id: result.donorId,
+      donor_name: result.donorName,
+      date: result.date,
+      hiv: result.hiv,
+      hepatitis_b: result.hepatitisB,
+      hepatitis_c: result.hepatitisC,
+      syphilis: result.syphilis,
+      blood_typing_confirmation: result.bloodTypingConfirmation,
+      hemoglobin: result.hemoglobin,
+    })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return mapTestResult(data);
+}
+
+export async function deleteTestResult(id: string): Promise<void> {
+  const { error } = await supabase.from("test_results").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ─── Medical Notes ────────────────────────────────────────────────────────────
+
+export async function getMedicalNotes(): Promise<MedicalNote[]> {
+  const { data, error } = await supabase
+    .from("medical_notes")
+    .select("*")
+    .order("date", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapMedicalNote);
+}
+
+export async function getMedicalNotesByDonor(donorId: string): Promise<MedicalNote[]> {
+  const { data, error } = await supabase
+    .from("medical_notes")
+    .select("*")
+    .eq("donor_id", donorId)
+    .order("date", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapMedicalNote);
+}
+
+export async function addMedicalNote(note: Omit<MedicalNote, "id">): Promise<MedicalNote> {
+  const { data, error } = await supabase
+    .from("medical_notes")
+    .insert({
+      donor_id: note.donorId,
+      author: note.author,
+      date: note.date,
+      content: note.content,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return mapMedicalNote(data);
+}
+
+export async function updateMedicalNote(id: string, note: Partial<Omit<MedicalNote, "id">>): Promise<MedicalNote> {
+  const { data, error } = await supabase
+    .from("medical_notes")
+    .update({
+      donor_id: note.donorId,
+      author: note.author,
+      date: note.date,
+      content: note.content,
+    })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return mapMedicalNote(data);
+}
+
+export async function deleteMedicalNote(id: string): Promise<void> {
+  const { error } = await supabase.from("medical_notes").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ─── Eligibility Helpers ──────────────────────────────────────────────────────
+
+export async function getLastDonationDate(donorId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("donations")
+    .select("date")
+    .eq("donor_id", donorId)
+    .order("date", { ascending: false })
+    .limit(1)
+    .single();
+  if (error || !data) return null;
+  return data.date;
+}
+
+export async function isEligibleToDonate(donorId: string): Promise<boolean> {
+  const lastDate = await getLastDonationDate(donorId);
+  if (!lastDate) return true;
+  const daysSince = Math.floor(
+    (Date.now() - new Date(lastDate).getTime()) / (1000 * 60 * 60 * 24)
+  );
   return daysSince >= 56;
-}
-
-export function getLastDonationDate(donorId: string): string | null {
-  const donations = getDonationsByDonor(donorId);
-  if (donations.length === 0) return null;
-  return donations.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0].date;
 }

@@ -5,14 +5,19 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 const navItems = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/donors", label: "Donors", icon: Users },
-  { to: "/donations", label: "Donations", icon: Heart },
-  { to: "/test-results", label: "Test Results", icon: TestTube },
-  { to: "/medical-notes", label: "Medical Notes", icon: FileText },
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, adminOnly: false },
+  { to: "/donors", label: "Donors", icon: Users, adminOnly: false },
+  { to: "/donations", label: "Donations", icon: Heart, adminOnly: false },
+  { to: "/test-results", label: "Test Results", icon: TestTube, adminOnly: false },
+  { to: "/medical-notes", label: "Medical Notes", icon: FileText, adminOnly: false },
 ];
 
-export default function AppSidebar() {
+interface AppSidebarProps {
+  onClose?: () => void;
+  className?: string;
+}
+
+export default function AppSidebar({ onClose, className }: AppSidebarProps) {
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
 
@@ -24,7 +29,7 @@ export default function AppSidebar() {
   const filteredItems = navItems.filter(item => !item.adminOnly || isAdmin);
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-sidebar-border bg-sidebar flex flex-col">
+    <aside className={cn("flex flex-col border-r border-sidebar-border bg-sidebar", className)}>
       <div className="flex items-center gap-3 px-6 py-5 border-b border-sidebar-border">
         <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
           <Droplets className="h-5 w-5 text-primary" />
@@ -37,6 +42,7 @@ export default function AppSidebar() {
           <NavLink
             key={item.to}
             to={item.to}
+            onClick={onClose}
             className={({ isActive }) =>
               cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",

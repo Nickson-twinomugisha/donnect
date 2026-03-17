@@ -4,83 +4,145 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Droplets } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Droplets, AlertCircle } from "lucide-react";
+
+type Mode = "login" | "signup";
 
 export default function LoginPage() {
-  const [isSignup, setIsSignup] = useState(false);
+  const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [role, setRole] = useState<"admin" | "staff">("staff");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const { login, signup } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSignup) {
-      signup(email, password, name, "staff");
-      toast({ title: "Account created", description: "Welcome to Donnect!" });
-      navigate("/dashboard");
-    } else {
-      const success = login(email, password);
-      if (success) {
-        navigate("/dashboard");
+    setError(null);
+    setLoading(true);
+
+    try {
+      if (mode === "login") {
+        const { error } = await login(email, password);
+        if (error) { setError(error); return; }
       } else {
-        toast({ title: "Login failed", description: "Invalid credentials. Try admin@donnect.com or staff@donnect.com with any password.", variant: "destructive" });
+        if (!name.trim()) { setError("Name is required."); return; }
+        const { error } = await signup(email, password, name, role);
+        if (error) { setError(error); return; }
       }
+      navigate("/dashboard");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md">
-        <div className="flex items-center justify-center gap-3 mb-8">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <div className="w-full max-w-md space-y-6">
+        {/* Logo */}
+        <div className="flex flex-col items-center gap-2">
           <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Droplets className="h-7 w-7 text-primary" />
+            <Droplets className="h-6 w-6 text-primary" />
           </div>
-          <h1 className="text-3xl font-bold font-display text-foreground tracking-tight">Donnect</h1>
+          <h1 className="text-2xl font-bold font-display">Donnect</h1>
+          <p className="text-sm text-muted-foreground">Blood Donation Management</p>
         </div>
 
-        <Card className="border-border/50">
-          <CardHeader className="text-center">
-            <CardTitle className="font-display">{isSignup ? "Create Account" : "Welcome Back"}</CardTitle>
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-display text-lg">
+              {mode === "login" ? "Sign in to your account" : "Create an account"}
+            </CardTitle>
             <CardDescription>
-              {isSignup ? "Sign up to start managing donations" : "Sign in to your account"}
+              {mode === "login"
+                ? "Enter your credentials to access Donnect."
+                : "Register a new staff or admin account."}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {isSignup && (
-                <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input id="name" value={name} onChange={e => setName(e.target.value)} placeholder="John Doe" required />
-                </div>
+              {mode === "signup" && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Full Name</Label>
+                    <Input
+                      id="name"
+                      value={name}
+                      onChange={e => setName(e.target.value)}
+                      placeholder="Dr. Jane Smith"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="role">Role</Label>
+                    <select
+                      id="role"
+                      value={role}
+                      onChange={e => setRole(e.target.value as "admin" | "staff")}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="staff">Staff</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                </>
               )}
+
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="admin@donnect.com" required />
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required
+                />
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
-                <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required />
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  minLength={6}
+                />
               </div>
-              <Button type="submit" className="w-full">{isSignup ? "Create Account" : "Sign In"}</Button>
+
+              {error && (
+                <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-md">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Please wait…" : mode === "login" ? "Sign In" : "Create Account"}
+              </Button>
             </form>
 
             <div className="mt-4 text-center text-sm text-muted-foreground">
-              {isSignup ? "Already have an account?" : "Don't have an account?"}{" "}
-              <button className="text-primary hover:underline" onClick={() => setIsSignup(!isSignup)}>
-                {isSignup ? "Sign in" : "Sign up"}
-              </button>
-            </div>
-
-            <div className="mt-6 p-3 rounded-lg bg-secondary/50 text-xs text-muted-foreground">
-              <p className="font-medium text-foreground mb-1">Demo Accounts:</p>
-              <p>Admin: admin@donnect.com</p>
-              <p>Staff: staff@donnect.com</p>
-              <p className="mt-1 italic">Any password works</p>
+              {mode === "login" ? (
+                <>Don't have an account?{" "}
+                  <button onClick={() => { setMode("signup"); setError(null); }} className="text-primary hover:underline">
+                    Sign up
+                  </button>
+                </>
+              ) : (
+                <>Already have an account?{" "}
+                  <button onClick={() => { setMode("login"); setError(null); }} className="text-primary hover:underline">
+                    Sign in
+                  </button>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>
