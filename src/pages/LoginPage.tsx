@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Droplets, AlertCircle } from "lucide-react";
+import { Droplets, AlertCircle, ArrowLeft } from "lucide-react";
 
 type Mode = "login" | "signup";
 
@@ -43,6 +43,15 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-md space-y-6">
+        {/* Back to home */}
+        <button
+          onClick={() => navigate("/")}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Back to Home
+        </button>
+
         {/* Logo */}
         <div className="flex flex-col items-center gap-2">
           <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">

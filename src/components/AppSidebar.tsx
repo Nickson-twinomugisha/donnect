@@ -23,7 +23,7 @@ export default function AppSidebar({ onClose, className }: AppSidebarProps) {
 
   const handleLogout = () => {
     logout();
-    navigate("/login");
+    navigate("/");
   };
 
   const filteredItems = navItems.filter(item => !item.adminOnly || isAdmin);

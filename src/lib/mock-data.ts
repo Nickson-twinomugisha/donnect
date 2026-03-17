@@ -475,3 +475,50 @@ export async function isEligibleToDonate(donorId: string): Promise<boolean> {
   );
   return daysSince >= 56;
 }
+
+// ─── Donor Portal (Public) ────────────────────────────────────────────────────
+
+/** Lookup a donor by full name + email — used for portal login */
+export async function getDonorByNameAndEmail(fullName: string, email: string): Promise<Donor | null> {
+  const { data, error } = await supabase
+    .from("donors")
+    .select("*")
+    .ilike("full_name", fullName.trim())
+    .ilike("email", email.trim())
+    .maybeSingle();
+  if (error || !data) return null;
+  return mapDonor(data);
+}
+
+/** All donations for a specific donor (for the portal) */
+export async function getDonorDonations(donorId: string): Promise<Donation[]> {
+  const { data, error } = await supabase
+    .from("donations")
+    .select("*")
+    .eq("donor_id", donorId)
+    .order("date", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapDonation);
+}
+
+/** All test results for a specific donor (for the portal) */
+export async function getDonorTestResults(donorId: string): Promise<TestResult[]> {
+  const { data, error } = await supabase
+    .from("test_results")
+    .select("*")
+    .eq("donor_id", donorId)
+    .order("date", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapTestResult);
+}
+
+/** All medical notes for a specific donor (portal — read-only) */
+export async function getDonorMedicalNotes(donorId: string): Promise<MedicalNote[]> {
+  const { data, error } = await supabase
+    .from("medical_notes")
+    .select("*")
+    .eq("donor_id", donorId)
+    .order("date", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapMedicalNote);
+}
