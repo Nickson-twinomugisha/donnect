@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let isMounted = true;
     let authSubscription: { unsubscribe: () => void } | null = null;
-    
+
     // Failsafe: if Supabase takes longer than 5 seconds to respond, force loading to false
     const fallbackTimeout = setTimeout(() => {
       if (isMounted) {
@@ -71,7 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log("Fetching initial session...");
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) throw error;
-        
+
         console.log("getSession resolved", session ? "with session" : "no session");
         if (isMounted) setSession(session);
         if (session?.user) {
@@ -102,7 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               const profile = await fetchProfile(session.user);
               if (isMounted) setUser(profile);
             } catch (e) {
-               console.error("Failed to fetch profile on auth change", e);
+              console.error("Failed to fetch profile on auth change", e);
             }
           } else {
             if (isMounted) setUser(null);
@@ -113,7 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
       );
-      
+
       authSubscription = subscription;
     };
 
@@ -136,7 +136,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name, role } },
+      options: {
+        data: { name, role },
+        emailRedirectTo: "https://donnect.vercel.app/login/callback"
+      },
     });
     if (error) return { error: error.message };
     return { error: null };
