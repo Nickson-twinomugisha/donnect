@@ -14,7 +14,7 @@ import PageLoader from "@/components/PageLoader";
 
 // ── Staff pages (lazy) ──────────────────────────────────────────────────────
 const LoginPage = lazy(() => import("@/pages/LoginPage"));
-const AuthCallbackPage = lazy(() => import("@/pages/LoginPage"));
+const AuthCallbackPage = lazy(() => import("@/pages/AuthCallbackPage"));
 const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
 const DonorsPage = lazy(() => import("@/pages/DonorsPage"));
 const DonorProfilePage = lazy(() => import("@/pages/DonorProfilePage"));
