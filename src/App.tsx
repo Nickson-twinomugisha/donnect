@@ -14,6 +14,7 @@ import PageLoader from "@/components/PageLoader";
 
 // ── Staff pages (lazy) ──────────────────────────────────────────────────────
 const LoginPage = lazy(() => import("@/pages/LoginPage"));
+const AuthCallbackPage = lazy(() => import("@/pages/LoginPage"));
 const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
 const DonorsPage = lazy(() => import("@/pages/DonorsPage"));
 const DonorProfilePage = lazy(() => import("@/pages/DonorProfilePage"));
@@ -54,6 +55,7 @@ const App = () => (
 
                   {/* ── Staff auth ───────────────────────────────── */}
                   <Route path="/login" element={<LoginGuard><LoginPage /></LoginGuard>} />
+                  <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
                   {/* ── Staff app ────────────────────────────────── */}
                   <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
